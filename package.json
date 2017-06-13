@@ -1,0 +1,25 @@
+{
+  "name": "pagina_personal",
+  "version": "1.0.0",
+  "description": "PErsonal Landing Page",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bay007/Pagina_Personal.git"
+  },
+  "keywords": [
+    "Landing",
+    "page",
+    "egalicia",
+    "bayo007"
+  ],
+  "author": "egalicia",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bay007/Pagina_Personal/issues"
+  },
+  "homepage": "https://github.com/bay007/Pagina_Personal#readme"
+}
