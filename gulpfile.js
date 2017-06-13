@@ -1,119 +1,80 @@
-// Include gulp
+/// <binding AfterBuild='default' />
 var gulp = require('gulp');
-// Include plugins
-var concat = require('gulp-concat');
-var uglify = require('gulp-uglify');
-var rename = require('gulp-rename');
-
-var cache = require('gulp-cache');
 var htmlmin = require('gulp-htmlmin');
-var cleanCSS = require('gulp-clean-css');
-var sass = require('gulp-sass');
+var useref = require('gulp-useref');
+var gulpRename = require('gulp-rename');
+var cacheBuster = require('gulp-cache-bust');
+var uglify = require('gulp-uglify');
+var cssnano = require('gulp-cssnano');
+var lazypipe = require('lazypipe');
+var sourcemaps = require('gulp-sourcemaps');
+var gulpif = require('gulp-if');
 
-// Concatenate & Minify JS
-gulp.task('scripts', function() {
-   gulp
-    .src(['dev/js/*.js'])
-    .pipe(concat('main.js'))
-    .pipe(rename({ suffix: '.min' }))
-    .pipe(uglify())
-    .pipe(gulp.dest('build/js'));
+// compressTasks is a sub process used by useRef (below) that
+// compresses (takes out white space etc) the javascript and 
+// css files
+var compressTasks = lazypipe()
+    .pipe(sourcemaps.init, { loadMaps: true })
+    .pipe(function () { return gulpif('*.js', uglify()); })
+    .pipe(function() {
+        return gulpif('*.css', cssnano({
+                zindex: false }));
+    });
+
+// useRef looks at markers in index.debug.html and combines
+// all of the files into one file.  once the files are combined
+// the compressTasks process is called and then
+// the files are all written out to the index directory.
+gulp.task('useRef', [],function() {
+    return gulp.src('index.debug.html')
+        .pipe(useref({}, 
+            lazypipe()
+            .pipe(compressTasks)
+            
+            ))
+        .pipe(sourcemaps.write('.'))
+        .pipe(gulp.dest('build'));
 });
 
-/*
-gulp.task('scripts-form-controllers', function() {
-  return gulp
-    .src(['js/form_controller.js'])
-    .pipe(rename({ suffix: '.min' }))
-    .pipe(uglify())
-    .pipe(gulp.dest('build/js'));
-});
-*/
- //Concatenate & Minify CSS
-gulp.task('minify-css', function() {
-   gulp
-    .src('dev/css/*.css')
-    .pipe(concat('main.css'))
-    .pipe(cleanCSS())
-    .pipe(rename({ suffix: '.min' }))
-    .pipe(gulp.dest('build/css'));
+// minIndex takes all of the whitespace out of the 
+// main index file
+gulp.task('minIndex', ['useRef'], function() {
+    return gulp.src('build/index.debug.html')
+        .pipe(htmlmin({ collapseWhitespace: true, removeComments: true }))
+        .pipe(gulp.dest('build'));
+
 });
 
-//gulp.task('sass', function() {
-//  return gulp
-//    .src('./sass/**/master.scss')
-//    .pipe(rename('style.css'))
-//    .pipe(sass({ outputStyle: 'expanded' }).on('error', sass.logError))
-//    .pipe(gulp.dest('css'));
-//});
-
-// Copy Fonts
-//gulp.task('copy-fonts', function() {
-//  return gulp.src('fonts/*').pipe(gulp.dest('build/fonts'));
-//});
-
-// Copy videos
-//gulp.task('copy-videos', function() {
-//  return gulp.src('video/*.gif').pipe(gulp.dest('build/video'));
-//});
-
-/*
-// copy robots-txt
-gulp.task('robots-txt', function() {
-  return gulp.src('robots.txt').pipe(gulp.dest('build'));
+// renameIndex renames the index file and puts it
+// in the root directory
+gulp.task('renameIndex', ['minIndex'], function () {
+    return gulp.src('build/index.debug.html')
+        .pipe(gulpRename('build/index.release.html'))
+        .pipe(gulp.dest('.'));
 });
 
-// copy copy-token
-gulp.task('copy-token', function() {
-  return gulp.src('token').pipe(gulp.dest('build'));
+
+gulp.task('copyJs', ['useRef'], function () {
+    // copy the js and map files generated from useref to 
+    // the real app directory
+    return gulp.src('build/js/*.*')
+        .pipe(gulp.dest('js'));
 });
 
-// copy sitemap
-gulp.task('sitemap', function() {
-  return gulp.src('sitemap.xml').pipe(gulp.dest('build'));
-});
-*/
-//image optimization
-//gulp.task('images', function() {
-//  return gulp
-//    .src('img/**/*')
-//    .pipe(
-//      cache(
-//        imagemin({ optimizationLevel: 5, progressive: true, interlaced: true })
-//      )
-//    )
-//    .pipe(gulp.dest('build/img'));
-//});
-
-//html minify
-gulp.task('minifyHTML', function() {
-   gulp
-    .src('dev/*.html')
-    .pipe(htmlmin({ collapseWhitespace: true }))
-    .pipe(gulp.dest('build'));
+gulp.task('copyCss', ['useRef'], function () {
+    // copy the css and map files generated from useref to 
+    // the real css directory
+    return gulp.src('build/css/*.*')
+        .pipe(gulp.dest('css'));
 });
 
-// Watch for changes in files
-gulp.task('watch', function() {
-  // Watch .js files
-  gulp.watch('dev/js/*.js', ['scripts']);
-  // Watch .scss files
-  gulp.watch('dev/css/*.css', ['minify-css']);
-
-  // Watch video folder
-  //gulp.watch('video/*', ['copy-videos']);
-
-  // Watch video folder
-  //gulp.watch('fonts/*', ['copy-fonts']);
-
-  // Watch image files
-  //gulp.watch('/dev/img/**/*', ['images']);
-
-  //watch for html changes
-  gulp.watch('dev/*.html', ['minifyHTML']);
-
-  //saas
-  //gulp.watch('sass/**/*', ['sass', 'minify-css']);
+// cacheBuster looks at the css and js files and appends a hash to the
+// request to cause the file to get reloaded when the file changes.
+gulp.task('cacheBuster', ['copyCss', 'copyJs', 'renameIndex'], function () {
+    return gulp.src('build/index.release.html')
+        .pipe(cacheBuster())
+        .pipe(gulp.dest('.'));
 });
 
-gulp.task('default', ['scripts','minify-css','minifyHTML', 'watch']);
+// This is the kickoff process.  Only one dependency.
+gulp.task('default', ['cacheBuster']);
