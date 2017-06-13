@@ -21,5 +21,8 @@
   "bugs": {
     "url": "https://github.com/bay007/Pagina_Personal/issues"
   },
-  "homepage": "https://github.com/bay007/Pagina_Personal#readme"
+  "homepage": "https://github.com/bay007/Pagina_Personal#readme",
+  "devDependencies": {
+    "gulp": "^3.9.1"
+  }
 }
